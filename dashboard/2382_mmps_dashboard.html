@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>廣達 2382 | 主力心態模擬預判系統 MMPS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@300;400;500&display=swap');
+
+:root {
+  --bg: #080b10;
+  --bg2: #0d1118;
+  --bg3: #121820;
+  --border: #1a2230;
+  --accent: #38bdf8;
+  --accent2: #7dd3fc;
+  --red: #f87171;
+  --green: #34d399;
+  --yellow: #fbbf24;
+  --purple: #a78bfa;
+  --dim: #374151;
+  --text: #cbd5e1;
+  --text2: #64748b;
+  --text3: #2d3748;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Noto Sans TC',sans-serif; min-height:100vh; overflow-x:hidden; }
+
+.header {
+  background: linear-gradient(135deg, #080b10, #0f172a 60%, #080d15);
+  border-bottom: 1px solid var(--border);
+  padding: 24px 20px 20px;
+  position: relative; overflow: hidden;
+}
+.header::before {
+  content:''; position:absolute; top:-60px; right:-60px;
+  width:260px; height:260px;
+  background: radial-gradient(circle, rgba(56,189,248,0.07) 0%, transparent 70%);
+  pointer-events:none;
+}
+.header-grid { display:grid; grid-template-columns:1fr auto; align-items:start; gap:12px; max-width:780px; margin:0 auto; }
+.stock-label { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--accent); letter-spacing:3px; text-transform:uppercase; margin-bottom:4px; }
+.stock-name { font-family:'Noto Serif TC',serif; font-size:28px; font-weight:900; color:#fff; line-height:1.1; }
+.stock-sub { font-size:12px; color:var(--text2); margin-top:4px; font-family:'IBM Plex Mono',monospace; }
+.price-block { text-align:right; }
+.price-main { font-family:'IBM Plex Mono',monospace; font-size:32px; font-weight:600; color:var(--accent2); line-height:1; }
+.price-change { font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--green); margin-top:4px; }
+.price-date { font-size:10px; color:var(--text2); margin-top:2px; }
+
+.phase-banner {
+  background: linear-gradient(90deg, rgba(56,189,248,0.10), rgba(56,189,248,0.02));
+  border-left: 3px solid var(--accent);
+  margin: 16px auto; padding: 14px 16px;
+  border-radius: 0 6px 6px 0;
+  max-width: 780px; padding-left: 20px; padding-right: 20px;
+}
+.phase-banner { margin-left:20px; margin-right:20px; }
+@media(min-width:820px){ .phase-banner{ margin-left:auto; margin-right:auto; } }
+.phase-title { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--accent); letter-spacing:2px; margin-bottom:6px; }
+.phase-main { font-size:18px; font-weight:600; color:#fff; }
+.phase-desc { font-size:12px; color:var(--text2); margin-top:4px; line-height:1.6; }
+
+.section { max-width:780px; margin:0 auto; padding:0 20px; }
+.section-label {
+  font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--accent);
+  letter-spacing:3px; text-transform:uppercase; margin:24px 0 12px;
+  display:flex; align-items:center; gap:10px;
+}
+.section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* TIMELINE */
+.timeline { position:relative; padding-left:28px; }
+.timeline::before { content:''; position:absolute; left:8px; top:0; bottom:0; width:1px; background:linear-gradient(to bottom,var(--accent) 0%,var(--border) 40%,var(--border) 80%,transparent 100%); }
+.tl-item { position:relative; margin-bottom:16px; cursor:pointer; }
+.tl-item::before { content:''; position:absolute; left:-24px; top:10px; width:8px; height:8px; border-radius:50%; border:1.5px solid var(--dim); background:var(--bg); transition:all 0.2s; }
+.tl-item.ph-吸貨::before { border-color:var(--accent); background:rgba(56,189,248,0.2); }
+.tl-item.ph-洗盤::before { border-color:var(--red); background:rgba(248,113,113,0.2); }
+.tl-item.ph-拉抬::before { border-color:var(--green); background:rgba(52,211,153,0.2); }
+.tl-item.ph-出貨::before { border-color:var(--yellow); background:rgba(251,191,36,0.2); }
+.tl-item.ph-恐慌::before { border-color:var(--red); background:rgba(248,113,113,0.3); }
+.tl-item.ph-現在::before { border-color:var(--accent); background:var(--accent); box-shadow:0 0 10px rgba(56,189,248,0.6); width:10px; height:10px; left:-25px; top:9px; }
+
+.tl-card { background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:12px 14px; transition:border-color 0.2s; }
+.tl-item:hover .tl-card { border-color:var(--dim); }
+.tl-item.ph-現在 .tl-card { border-color:rgba(56,189,248,0.3); background:rgba(56,189,248,0.04); }
+.tl-header { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
+.tl-date { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text2); min-width:80px; }
+.tl-tag { font-size:10px; padding:2px 8px; border-radius:20px; font-weight:500; }
+.tag-吸貨 { background:rgba(56,189,248,0.12); color:var(--accent2); }
+.tag-洗盤 { background:rgba(248,113,113,0.12); color:var(--red); }
+.tag-拉抬 { background:rgba(52,211,153,0.12); color:var(--green); }
+.tag-出貨 { background:rgba(251,191,36,0.12); color:var(--yellow); }
+.tag-恐慌 { background:rgba(248,113,113,0.18); color:var(--red); }
+.tag-現在 { background:rgba(56,189,248,0.2); color:var(--accent); border:1px solid rgba(56,189,248,0.4); }
+.tl-price { font-family:'IBM Plex Mono',monospace; font-size:13px; color:#fff; font-weight:600; }
+.tl-body { font-size:12px; color:var(--text); line-height:1.6; margin-bottom:8px; }
+.tl-signals { display:flex; flex-wrap:wrap; gap:5px; }
+.chip { font-size:10px; padding:2px 7px; border-radius:3px; background:var(--bg3); color:var(--text2); border:1px solid var(--border); }
+.chip.p { color:var(--green); border-color:rgba(52,211,153,0.2); background:rgba(52,211,153,0.05); }
+.chip.n { color:var(--red); border-color:rgba(248,113,113,0.2); background:rgba(248,113,113,0.05); }
+.chip.w { color:var(--yellow); border-color:rgba(251,191,36,0.2); background:rgba(251,191,36,0.05); }
+
+/* CHART */
+.chart-box { background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:16px; overflow:hidden; }
+.chart-hdr { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text2); margin-bottom:12px; display:flex; justify-content:space-between; }
+.chart-svg-wrap { width:100%; overflow-x:auto; }
+svg.chart { display:block; width:100%; min-width:320px; }
+
+/* PROB */
+.mmps-card { background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:12px; }
+.mmps-title { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text2); letter-spacing:1px; margin-bottom:12px; }
+.prob-row { display:grid; grid-template-columns:95px 1fr 42px; align-items:center; gap:8px; margin-bottom:10px; }
+.prob-lbl { font-size:12px; color:var(--text); display:flex; align-items:center; gap:5px; }
+.pdot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.ptrack { height:6px; background:var(--bg3); border-radius:3px; overflow:hidden; }
+.pfill { height:100%; border-radius:3px; transition:width 1s ease; }
+.ppct { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text2); text-align:right; }
+
+/* NEXT STEPS */
+.ns-list { display:flex; flex-direction:column; gap:8px; }
+.ns-item { background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:10px 12px; display:grid; grid-template-columns:1fr auto; align-items:center; gap:8px; }
+.ns-item.top { border-color:rgba(56,189,248,0.3); background:rgba(56,189,248,0.04); }
+.ns-txt { font-size:12px; color:var(--text); line-height:1.5; }
+.ns-txt small { display:block; color:var(--text2); font-size:11px; margin-top:2px; }
+.ns-pct { font-family:'IBM Plex Mono',monospace; font-size:16px; font-weight:600; white-space:nowrap; }
+.ns-dir { font-size:10px; color:var(--text2); text-align:right; }
+
+/* SIGNAL TABLE */
+.sig-tbl { width:100%; border-collapse:collapse; font-size:12px; }
+.sig-tbl th { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--text2); padding:4px 8px; text-align:left; letter-spacing:1px; border-bottom:1px solid var(--border); }
+.sig-tbl td { padding:8px; border-bottom:1px solid rgba(26,34,48,0.5); vertical-align:top; }
+.sig-tbl tr:last-child td { border-bottom:none; }
+.sn { color:var(--text); font-weight:500; }
+.sv { font-family:'IBM Plex Mono',monospace; color:var(--text2); font-size:11px; }
+.si { color:var(--text2); font-size:11px; line-height:1.5; }
+.sw { font-family:'IBM Plex Mono',monospace; font-size:10px; padding:2px 5px; border-radius:3px; }
+.sw-h { background:rgba(56,189,248,0.12); color:var(--accent2); }
+.sw-m { background:rgba(167,139,250,0.12); color:var(--purple); }
+
+/* QUAD */
+.quad { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+.qcard { background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:12px; }
+.qtitle { font-size:10px; color:var(--text2); margin-bottom:8px; }
+.qscore { font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:600; line-height:1; }
+.qmax { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text2); }
+.qitems { margin-top:8px; font-size:11px; color:var(--text2); line-height:1.8; }
+.qitems span { color:var(--text); }
+
+/* LAW */
+.law-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(26,34,48,0.5); font-size:12px; }
+.law-row:last-child { border-bottom:none; }
+.law-ico { font-size:14px; width:20px; text-align:center; flex-shrink:0; }
+.law-nm { color:var(--text); flex:1; }
+.law-st { font-family:'IBM Plex Mono',monospace; font-size:11px; padding:2px 7px; border-radius:3px; }
+.l-ok { background:rgba(52,211,153,0.1); color:var(--green); }
+.l-w { background:rgba(251,191,36,0.1); color:var(--yellow); }
+.l-d { background:rgba(248,113,113,0.1); color:var(--red); }
+
+/* FINGERPRINT */
+.fp-sec { margin-bottom:14px; }
+.fp-hdr { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.fp-nm { font-size:12px; font-weight:600; }
+.fp-bar { flex:1; height:3px; background:var(--bg3); border-radius:2px; overflow:hidden; }
+.fp-fill { height:100%; border-radius:2px; }
+.fp-pct { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text2); }
+.fp-chips { display:flex; flex-wrap:wrap; gap:5px; }
+.fp-y { font-size:10px; padding:3px 8px; border-radius:3px; background:rgba(52,211,153,0.08); color:var(--green); border:1px solid rgba(52,211,153,0.2); }
+.fp-n { font-size:10px; padding:3px 8px; border-radius:3px; background:rgba(45,55,72,0.2); color:var(--text3); border:1px solid var(--border); }
+
+/* REC */
+.rec-box { background:linear-gradient(135deg,rgba(56,189,248,0.07),rgba(56,189,248,0.02)); border:1px solid rgba(56,189,248,0.22); border-radius:8px; padding:16px; margin-bottom:12px; }
+.rec-verdict { font-family:'Noto Serif TC',serif; font-size:20px; font-weight:700; color:var(--accent2); margin-bottom:8px; }
+.rec-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+.rec-item { background:rgba(8,11,16,0.5); border:1px solid var(--border); border-radius:6px; padding:8px 10px; }
+.ri-lbl { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--text2); letter-spacing:1px; margin-bottom:3px; }
+.ri-val { font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600; color:#fff; }
+.ri-val.g { color:var(--green); }
+.ri-val.r { color:var(--red); }
+.ri-val.y { color:var(--yellow); }
+.ri-val.b { color:var(--accent2); }
+
+/* DIFF vs 奇鋐 */
+.diff-box { background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px; }
+.diff-title { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--accent); letter-spacing:2px; margin-bottom:10px; }
+.diff-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:6px; font-size:11px; }
+.diff-hd { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--text2); padding-bottom:4px; border-bottom:1px solid var(--border); }
+.diff-lbl { color:var(--text2); }
+.diff-a { color:var(--accent2); }
+.diff-b { color:var(--yellow); }
+
+/* DETAIL TOGGLE */
+.dt { font-size:11px; color:var(--text2); cursor:pointer; display:flex; align-items:center; gap:4px; margin-top:6px; user-select:none; }
+.dt:hover { color:var(--text); }
+.db { display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); font-size:12px; color:var(--text2); line-height:1.7; }
+.db.open { display:block; }
+.ch { transition:transform 0.2s; display:inline-block; }
+.ch.open { transform:rotate(180deg); }
+
+.disclaimer { font-size:10px; color:var(--text3); padding:16px 20px; max-width:780px; margin:0 auto; line-height:1.6; border-top:1px solid var(--border); margin-top:16px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-grid">
+    <div>
+      <div class="stock-label">MMPS · 主力心態模擬預判 · 2382</div>
+      <div class="stock-name">廣達電腦</div>
+      <div class="stock-sub">Quanta Computer ｜ AI伺服器ODM龍頭 ｜ 全球前五大筆電代工</div>
+    </div>
+    <div class="price-block">
+      <div class="price-main">NT$316</div>
+      <div class="price-change">▲ +8 (+2.60%)</div>
+      <div class="price-date">2026/05/23 收盤參考</div>
+    </div>
+  </div>
+</div>
+
+<!-- PHASE BANNER -->
+<div class="phase-banner" style="margin:16px 20px;">
+  <div class="phase-title">◈ 當前主力週期判斷</div>
+  <div class="phase-main">⚠️ 高檔震盪出貨期 → 毛利率疑雲壓制</div>
+  <div class="phase-desc">法說會（5/14）EPS 5.5 元創歷史同期新高，但毛利率 4.78% 大幅低於預期，外資當日單日賣超 3,001 張。股價從高點 334.5 急跌逾 8%，目前在 300~320 元區間震盪。主力面臨「基本面好但毛利結構差」的多空拉鋸，市場等待下半年毛利改善驗證。</div>
+</div>
+
+<div class="section">
+
+  <!-- CHART -->
+  <div class="section-label">價格時間軸 · 主力週期標注</div>
+  <div class="chart-box">
+    <div class="chart-hdr">
+      <span>廣達 2382 · 近90日主力操盤週期對應圖</span>
+      <span style="color:var(--accent)">▶ 點節點展開詳情</span>
+    </div>
+    <div class="chart-svg-wrap">
+      <svg class="chart" viewBox="0 0 740 220" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="cg2" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.06"/>
+            <stop offset="35%" stop-color="#34d399" stop-opacity="0.06"/>
+            <stop offset="65%" stop-color="#fbbf24" stop-opacity="0.05"/>
+            <stop offset="100%" stop-color="#f87171" stop-opacity="0.07"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Grid -->
+        <line x1="40" y1="20" x2="40" y2="185" stroke="#1a2230" stroke-width="0.5"/>
+        <line x1="40" y1="185" x2="720" y2="185" stroke="#1a2230" stroke-width="0.5"/>
+        <line x1="40" y1="20" x2="720" y2="20" stroke="#1a2230" stroke-width="0.5" stroke-dasharray="3,4"/>
+        <line x1="40" y1="73" x2="720" y2="73" stroke="#1a2230" stroke-width="0.5" stroke-dasharray="3,4"/>
+        <line x1="40" y1="130" x2="720" y2="130" stroke="#1a2230" stroke-width="0.5" stroke-dasharray="3,4"/>
+
+        <!-- Price scale: 150~420, range 270, 165px → 1pt = 0.611px  y = 185 - (p-150)*0.611 -->
+        <text x="34" y="24" fill="#374151" font-size="8" font-family="IBM Plex Mono" text-anchor="end">420</text>
+        <text x="34" y="77" fill="#374151" font-size="8" font-family="IBM Plex Mono" text-anchor="end">330</text>
+        <text x="34" y="134" fill="#374151" font-size="8" font-family="IBM Plex Mono" text-anchor="end">240</text>
+        <text x="34" y="189" fill="#374151" font-size="8" font-family="IBM Plex Mono" text-anchor="end">150</text>
+
+        <!-- Phase zones -->
+        <!-- 吸貨: x40~170 -->
+        <rect x="40" y="20" width="130" height="165" fill="rgba(56,189,248,0.04)" rx="2"/>
+        <text x="105" y="14" fill="#38bdf8" font-size="7" font-family="IBM Plex Mono" text-anchor="middle" opacity="0.7">吸貨期</text>
+        <!-- 關稅恐慌: x170~280 -->
+        <rect x="170" y="20" width="110" height="165" fill="rgba(248,113,113,0.05)" rx="2"/>
+        <text x="225" y="14" fill="#f87171" font-size="7" font-family="IBM Plex Mono" text-anchor="middle" opacity="0.7">關稅恐慌</text>
+        <!-- 拉抬: x280~540 -->
+        <rect x="280" y="20" width="260" height="165" fill="rgba(52,211,153,0.04)" rx="2"/>
+        <text x="410" y="14" fill="#34d399" font-size="7" font-family="IBM Plex Mono" text-anchor="middle" opacity="0.7">拉抬期</text>
+        <!-- 出貨震盪: x540~720 -->
+        <rect x="540" y="20" width="180" height="165" fill="rgba(251,191,36,0.05)" rx="2"/>
+        <text x="630" y="14" fill="#fbbf24" font-size="7" font-family="IBM Plex Mono" text-anchor="middle" opacity="0.7">出貨震盪</text>
+
+        <!-- Area fill -->
+        <!-- Data: 2/20:275(x40), 3/5:285(x90), 3/14:320(x130),
+             3/18:280(x155), 4/7:195(x200 關稅低點), 4/9:210(x220),
+             4/15:240(x255), 4/25:315(x310), 5/2:330(x360),
+             5/6:318(x400), 5/9:325(x430), 5/14:334(x480 法說高),
+             5/15:306(x510 急跌), 5/16:308(x540),
+             5/19:315(x600), 5/23:316(x720) -->
+        <!-- y = 185 - (p-150)*0.611 -->
+        <!-- 275→123, 285→117, 320→95, 280→122, 195→178, 210→159, 240→140, 315→101, 330→92, 318→99, 325→95, 334→89, 306→107, 308→106, 315→101, 316→101 -->
+        <path d="M40,123 L90,117 L130,95 L155,122 L200,178 L220,159 L255,140 L310,101 L360,92 L400,99 L430,95 L480,89 L510,107 L540,106 L600,101 L720,101 L720,185 L40,185 Z"
+          fill="url(#cg2)" stroke="none"/>
+        <polyline points="40,123 90,117 130,95 155,122 200,178 220,159 255,140 310,101 360,92 400,99 430,95 480,89 510,107 540,106 600,101 720,101"
+          fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-linejoin="round"/>
+
+        <!-- MA20 -->
+        <polyline points="40,130 90,125 130,110 155,115 200,155 220,148 255,138 310,115 360,105 400,102 430,100 480,96 510,100 540,102 600,101 720,101"
+          fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>
+
+        <!-- Events -->
+        <!-- 3/14 營收高 x=130 y=95 -->
+        <circle cx="130" cy="95" r="4" fill="none" stroke="#34d399" stroke-width="1.5"/>
+        <line x1="130" y1="91" x2="130" y2="68" stroke="#34d399" stroke-width="0.8" stroke-dasharray="2,2"/>
+        <text x="130" y="65" fill="#34d399" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">營收新高</text>
+        <text x="130" y="56" fill="#34d399" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">NT$320</text>
+
+        <!-- 4/7 關稅低點 x=200 y=178 -->
+        <circle cx="200" cy="178" r="5" fill="rgba(248,113,113,0.3)" stroke="#f87171" stroke-width="1.5"/>
+        <line x1="200" y1="172" x2="200" y2="150" stroke="#f87171" stroke-width="0.8" stroke-dasharray="2,2"/>
+        <text x="200" y="147" fill="#f87171" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">關稅恐慌低</text>
+        <text x="200" y="138" fill="#f87171" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">~195</text>
+
+        <!-- 外資低接 x=215 y=165 -->
+        <text x="215" y="130" fill="#38bdf8" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">外資低接</text>
+        <text x="215" y="121" fill="#38bdf8" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">+1.7萬張</text>
+
+        <!-- 5/14 法說 x=480 y=89 -->
+        <circle cx="480" cy="89" r="5" fill="rgba(251,191,36,0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <line x1="480" y1="84" x2="480" y2="60" stroke="#fbbf24" stroke-width="0.8" stroke-dasharray="2,2"/>
+        <text x="480" y="57" fill="#fbbf24" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">法說會</text>
+        <text x="480" y="48" fill="#fbbf24" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">EPS 5.5</text>
+
+        <!-- 5/15 急跌 x=510 y=107 -->
+        <circle cx="510" cy="107" r="4" fill="rgba(248,113,113,0.25)" stroke="#f87171" stroke-width="1.5"/>
+        <line x1="510" y1="112" x2="510" y2="135" stroke="#f87171" stroke-width="0.8" stroke-dasharray="2,2"/>
+        <text x="510" y="143" fill="#f87171" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">毛利衝擊</text>
+        <text x="510" y="152" fill="#f87171" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">-8%↓</text>
+
+        <!-- Now x=720 y=101 -->
+        <circle cx="720" cy="101" r="5" fill="#38bdf8" stroke="#7dd3fc" stroke-width="1.5"/>
+        <text x="720" y="118" fill="#7dd3fc" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">現在</text>
+        <text x="720" y="127" fill="#7dd3fc" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">316</text>
+
+        <!-- Dates -->
+        <text x="40" y="198" fill="#2d3748" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">2/20</text>
+        <text x="130" y="198" fill="#2d3748" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">3/14</text>
+        <text x="200" y="198" fill="#2d3748" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">4/7</text>
+        <text x="310" y="198" fill="#2d3748" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">4/25</text>
+        <text x="480" y="198" fill="#2d3748" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">5/14</text>
+        <text x="720" y="198" fill="#2d3748" font-size="7" font-family="IBM Plex Mono" text-anchor="middle">5/23</text>
+
+        <!-- Legend -->
+        <line x1="45" y1="210" x2="65" y2="210" stroke="#38bdf8" stroke-width="1.5"/>
+        <text x="68" y="213" fill="#64748b" font-size="7" font-family="IBM Plex Mono">股價</text>
+        <line x1="105" y1="210" x2="125" y2="210" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="128" y="213" fill="#64748b" font-size="7" font-family="IBM Plex Mono">MA20(估)</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- TIMELINE EVENTS -->
+  <div class="section-label">主力行為時間軸 · 事件詳解</div>
+  <div class="timeline">
+
+    <!-- 1 吸貨 -->
+    <div class="tl-item ph-吸貨" onclick="tog(this)">
+      <div class="tl-card">
+        <div class="tl-header">
+          <span class="tl-date">02/20–03/13</span>
+          <span class="tl-tag tag-吸貨">吸貨期</span>
+          <span class="tl-price">270→320</span>
+        </div>
+        <div class="tl-body">外資持續買超，市場看好 GB200/GB300 出貨放量。廣達 2 月營收創歷史新高，AI伺服器佔比持續攀升。法人悄悄建倉，股價緩步走高但量能尚未暴增。</div>
+        <div class="tl-signals">
+          <span class="chip p">外資連買超 ✓</span>
+          <span class="chip p">GB300 量產在即 ✓</span>
+          <span class="chip p">AI訂單能見度高 ✓</span>
+          <span class="chip w">股本龐大 吸貨慢 △</span>
+        </div>
+        <div class="dt"><span class="ch">▼</span> 主力行為解讀</div>
+        <div class="db">廣達股本大（約 388 億），主力要建立有意義的倉位需要更長時間。外資在此階段是主要買盤，分散多個分點小量買進。特點：因為廣達是大型權值股，散戶討論度始終不低，主力吸貨環境比小型股困難——這也是廣達操盤週期通常比小型股慢的原因。</div>
+      </div>
+    </div>
+
+    <!-- 2 關稅恐慌 -->
+    <div class="tl-item ph-恐慌" onclick="tog(this)">
+      <div class="tl-card">
+        <div class="tl-header">
+          <span class="tl-date">03/14–04/09</span>
+          <span class="tl-tag tag-恐慌">關稅恐慌殺盤</span>
+          <span class="tl-price">320→195（低點）</span>
+        </div>
+        <div class="tl-body">美國關稅衝擊全球科技股，廣達因高度依賴美國 AI 伺服器客戶而遭重殺。股價從 320 急跌至 195 元，跌幅近 40%。但外資在 4/7~4/8 連續兩天合計買超逾 1.7 萬張，明顯低接。</div>
+        <div class="tl-signals">
+          <span class="chip n">關稅利空衝擊 ✗</span>
+          <span class="chip n">跌破所有均線 ✗</span>
+          <span class="chip p">外資逆勢大量低接 ✓</span>
+          <span class="chip p">3月營收再創新高 ✓</span>
+        </div>
+        <div class="dt"><span class="ch">▼</span> 主力行為解讀</div>
+        <div class="db">這是一個關鍵的「外部衝擊型洗盤」——不是主力主動製造的恐慌，而是宏觀事件讓主力撿到便宜貨。外資在 195 元附近連續大量買超，這是明確的「主力趁恐慌低接」訊號。國安基金同期啟動安定機制也提供了心理底部支撐。從行為金融看：這種外部利空觸發的急跌，往往比主力洗盤製造的殺盤更容易成為中期低點。</div>
+      </div>
+    </div>
+
+    <!-- 3 拉抬 -->
+    <div class="tl-item ph-拉抬" onclick="tog(this)">
+      <div class="tl-card">
+        <div class="tl-header">
+          <span class="tl-date">04/10–05/13</span>
+          <span class="tl-tag tag-拉抬">拉抬期</span>
+          <span class="tl-price">210→334.5（高點）</span>
+        </div>
+        <div class="tl-body">關稅不確定性消退後，AI伺服器需求確認強勁，外資持續加碼。4月營收 3,399 億元年增 120.71% 驚人，大盤同期攻上歷史天量 41,138 點配合。股價從 210 一路攻上 334.5 元，漲幅近 60%。</div>
+        <div class="tl-signals">
+          <span class="chip p">4月營收年增120% ✓</span>
+          <span class="chip p">GB300放量出貨 ✓</span>
+          <span class="chip p">AI訂單看到2027年 ✓</span>
+          <span class="chip p">大盤天量配合 ✓</span>
+          <span class="chip w">毛利率壓力已隱現 ⚠</span>
+        </div>
+        <div class="dt"><span class="ch">▼</span> 主力行為解讀</div>
+        <div class="db">外資主導的拉抬，配合基本面強勁爆發，量能穩步放大。但進入 5 月後，有細心的分析師注意到：法說前已有報告示警 GB300 產品組合轉換可能壓低毛利率。主力在此訊息傳開前仍在拉抬，高點 334.5 出現在 5/14 法說當天，是典型的「利多出盡出貨點」。</div>
+      </div>
+    </div>
+
+    <!-- 4 法說出貨 -->
+    <div class="tl-item ph-出貨" onclick="tog(this)">
+      <div class="tl-card">
+        <div class="tl-header">
+          <span class="tl-date">05/14–05/16</span>
+          <span class="tl-tag tag-出貨">法說利多出盡 → 急跌</span>
+          <span class="tl-price">334.5→306（-8.5%）</span>
+        </div>
+        <div class="tl-body">法說會公布 Q1 EPS 5.5 元創歷史同期新高，但毛利率 4.78% 遠低於市場預期（原預期 ~5.5%）。外資當日賣超 3,001 張，主力賣超 3,298 張，股價重挫逾 8%，盤中一度逼近 300 元整數關卡。</div>
+        <div class="tl-signals">
+          <span class="chip n">毛利率4.78% 遠低預期 ✗</span>
+          <span class="chip n">外資單日賣超3,001張 ✗</span>
+          <span class="chip n">美系外資下調目標價 ✗</span>
+          <span class="chip p">AI訂單能見度2027年後 ✓</span>
+          <span class="chip w">下半年寄售模式改善預期 △</span>
+        </div>
+        <div class="dt"><span class="ch">▼</span> 主力行為解讀</div>
+        <div class="db">這是教科書級的「利多出盡出貨」：主力在法說消息公布的最高點附近大量出售。毛利率的衝擊是真實的結構性問題（GB300產品組合、PC記憶體成本上升、試產報廢），不是假消息。但市場的反應可能過度——因為長期訂單能見度和 AI 需求趨勢未改變。美系外資雖下調目標價，但仍維持買進評等（目標 385 元），說明主力的出貨是「獲利了結 + 倉位調整」，而非「看空出清」。</div>
+      </div>
+    </div>
+
+    <!-- 5 現在 -->
+    <div class="tl-item ph-現在" onclick="tog(this)">
+      <div class="tl-card">
+        <div class="tl-header">
+          <span class="tl-date">05/17–05/23（現在）</span>
+          <span class="tl-tag tag-現在">⚡ 目前：高檔震盪整理</span>
+          <span class="tl-price">~316</span>
+        </div>
+        <div class="tl-body">股價在 300~320 區間震盪，多空拉鋸。外資仍買超（台股整體外資匯入），但法說後的賣壓尚未完全消化。市場焦點轉移到：①Q2 毛利率能否改善至 5% 以上；②下半年寄售模式轉換效果；③AMD MI455 出貨時程。法人目標價區間 380~430 元，現價潛在空間 20~36%。</div>
+        <div class="tl-signals">
+          <span class="chip p">法人目標價380~430 ✓</span>
+          <span class="chip p">AI訂單能見度高 ✓</span>
+          <span class="chip p">美台均維持買進評等 ✓</span>
+          <span class="chip n">毛利結構問題未解 ✗</span>
+          <span class="chip w">Q2毛利率是關鍵驗證 △</span>
+          <span class="chip w">主力賣壓未完全消化 △</span>
+        </div>
+        <div class="dt"><span class="ch">▼</span> 主力行為解讀</div>
+        <div class="db">廣達目前處於「震盪築底 vs 繼續出貨」的分叉點。主力行為出現分歧：部分外資在法說後調節，但仍有法人（元大、富邦）維持買進並上調目標價。下半年三大催化劑：①部分專案轉寄售模式（可提升毛利率）；②AMD MI455 新平台出貨（新業績貢獻）；③ASIC 業務持續成長（毛利較高）。若 Q2 財報（約 8 月）毛利率回升至 5% 以上，有機會重新啟動拉抬。</div>
+      </div>
+    </div>
+
+  </div><!-- timeline -->
+
+  <!-- MMPS PHASE PROB -->
+  <div class="section-label">MMPS · 主力週期概率矩陣</div>
+  <div class="mmps-card">
+    <div class="mmps-title">◈ 當前週期狀態概率（7項訊號輸入）</div>
+    <div class="prob-row">
+      <div class="prob-lbl"><span class="pdot" style="background:#fbbf24"></span>高檔震盪</div>
+      <div class="ptrack"><div class="pfill" style="width:48%;background:#fbbf24"></div></div>
+      <div class="ppct">48%</div>
+    </div>
+    <div class="prob-row">
+      <div class="prob-lbl"><span class="pdot" style="background:#38bdf8"></span>再次吸貨築底</div>
+      <div class="ptrack"><div class="pfill" style="width:28%;background:#38bdf8"></div></div>
+      <div class="ppct">28%</div>
+    </div>
+    <div class="prob-row">
+      <div class="prob-lbl"><span class="pdot" style="background:#f87171"></span>二次出貨下探</div>
+      <div class="ptrack"><div class="pfill" style="width:15%;background:#f87171"></div></div>
+      <div class="ppct">15%</div>
+    </div>
+    <div class="prob-row">
+      <div class="prob-lbl"><span class="pdot" style="background:#34d399"></span>提早重啟拉抬</div>
+      <div class="ptrack"><div class="pfill" style="width:9%;background:#34d399"></div></div>
+      <div class="ppct">9%</div>
+    </div>
+  </div>
+
+  <!-- NEXT STEPS -->
+  <div class="mmps-card">
+    <div class="mmps-title">▶ 下一步主力操盤手法概率預判</div>
+    <div class="ns-list">
+      <div class="ns-item top">
+        <div class="ns-txt">
+          持續在 295~330 元震盪消化賣壓，等待 Q2 財報
+          <small>主力「時間換空間」，等毛利率數據出來再決定方向（約 8 月）</small>
+        </div>
+        <div>
+          <div class="ns-pct" style="color:#fbbf24">42%</div>
+          <div class="ns-dir">↔ 最高概率</div>
+        </div>
+      </div>
+      <div class="ns-item">
+        <div class="ns-txt">
+          跌破 300 元支撐，製造恐慌後低接
+          <small>主力趁散戶恐慌停損，在 285~300 元加大買超，重新吸籌</small>
+        </div>
+        <div>
+          <div class="ns-pct" style="color:#38bdf8">28%</div>
+          <div class="ns-dir">↓↑ 次高</div>
+        </div>
+      </div>
+      <div class="ns-item">
+        <div class="ns-txt">
+          AMD MI455 / 寄售消息提前拉抬，突破 340 元
+          <small>若有正面催化劑（法人上修、新客戶），主力提前啟動下一波</small>
+        </div>
+        <div>
+          <div class="ns-pct" style="color:#34d399">21%</div>
+          <div class="ns-dir">↑ 樂觀情境</div>
+        </div>
+      </div>
+      <div class="ns-item">
+        <div class="ns-txt">
+          毛利率持續惡化，主力大量出清至 270 以下
+          <small>若 Q2 毛利率再度低於預期，或 AI 訂單傳出下修</small>
+        </div>
+        <div>
+          <div class="ns-pct" style="color:#f87171">9%</div>
+          <div class="ns-dir">↓ 悲觀情境</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIGNAL TABLE -->
+  <div class="section-label">輸入訊號矩陣 · 7項已知</div>
+  <div class="mmps-card">
+    <table class="sig-tbl">
+      <thead><tr><th>訊號維度</th><th>觀測值</th><th>解讀</th><th>權重</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="sn">💹 分點集中度</td>
+          <td class="sv">法說後外資<br>3,001張賣超</td>
+          <td class="si">外資獲利了結，但部分分析師仍維持買進，分點尚未全面分散</td>
+          <td><span class="sw sw-h">高</span></td>
+        </tr>
+        <tr>
+          <td class="sn">📊 量比</td>
+          <td class="sv">法說日爆量<br>後轉量縮</td>
+          <td class="si">法說後量縮整理，主力未繼續大量賣出，觀望氣氛濃厚</td>
+          <td><span class="sw sw-h">高</span></td>
+        </tr>
+        <tr>
+          <td class="sn">📈 K線型態</td>
+          <td class="sv">站上300元<br>反彈未創高</td>
+          <td class="si">技術面中性偏弱，需突破 334 前高才能確認多頭續行</td>
+          <td><span class="sw sw-m">中</span></td>
+        </tr>
+        <tr>
+          <td class="sn">🏦 法人動向</td>
+          <td class="sv">台股法說後<br>賣超3,371張</td>
+          <td class="si">三大法人同向賣超，但幅度逐日收窄，觀察是否止賣轉買</td>
+          <td><span class="sw sw-h">高</span></td>
+        </tr>
+        <tr>
+          <td class="sn">💬 論壇情緒</td>
+          <td class="sv">「外資買超<br>怎麼還跌」</td>
+          <td class="si">散戶困惑情緒是典型高檔震盪特徵，恐慌未到頂，底部未到</td>
+          <td><span class="sw sw-m">中</span></td>
+        </tr>
+        <tr>
+          <td class="sn">🌍 宏觀環境</td>
+          <td class="sv">AI需求仍強<br>訂單到2027</td>
+          <td class="si">長線基本面無虞，但短期毛利率壓力是真實存在的結構問題</td>
+          <td><span class="sw sw-h">高</span></td>
+        </tr>
+        <tr>
+          <td class="sn">📋 基本面</td>
+          <td class="sv">EPS 5.5創高<br>毛利4.78%↓</td>
+          <td class="si">獲利創高但毛利率低於預期是核心矛盾，下半年寄售改善是關鍵</td>
+          <td><span class="sw sw-h">高</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 4-DIM -->
+  <div class="section-label">四維分析 · MMPS 框架</div>
+  <div class="quad">
+    <div class="qcard">
+      <div class="qtitle">🧠 金融心理</div>
+      <div class="qscore" style="color:#fbbf24">5.8<span class="qmax">/10</span></div>
+      <div class="qitems">
+        <span>散戶情緒：</span>困惑觀望<br>
+        <span>籌碼集中：</span>法說後鬆動<br>
+        <span>從衆效應：</span>追高未退燒<br>
+        <span>認知偏差：</span>毛利衝擊過度反應？
+      </div>
+    </div>
+    <div class="qcard">
+      <div class="qtitle">📉 技術操作</div>
+      <div class="qscore" style="color:#a78bfa">5.5<span class="qmax">/10</span></div>
+      <div class="qitems">
+        <span>均線：</span>站上月線 ✓<br>
+        <span>KD：</span>高檔鈍化中<br>
+        <span>MACD：</span>零軸上方翻空<br>
+        <span>型態：</span>頭部雛形觀察中
+      </div>
+    </div>
+    <div class="qcard">
+      <div class="qtitle">🌐 宏觀環境</div>
+      <div class="qscore" style="color:#34d399">7.5<span class="qmax">/10</span></div>
+      <div class="qitems">
+        <span>AI需求：</span>持續爆發 ✓<br>
+        <span>訂單能見度：</span>到2027 ✓<br>
+        <span>台幣：</span>升值利多 ✓<br>
+        <span>關稅風險：</span>仍存在 △
+      </div>
+    </div>
+    <div class="qcard">
+      <div class="qtitle">⚖️ 法規限制</div>
+      <div class="qscore" style="color:#38bdf8">7.0<span class="qmax">/10</span></div>
+      <div class="qitems">
+        <span>大股東申報：</span>無異常 ✓<br>
+        <span>融資使用率：</span>正常 ✓<br>
+        <span>ETF成分股：</span>0050權重股<br>
+        <span>資本支出：</span>300億 需關注
+      </div>
+    </div>
+  </div>
+
+  <!-- FINGERPRINT -->
+  <div class="section-label">主力指紋比對</div>
+  <div class="mmps-card">
+    <div class="fp-sec">
+      <div class="fp-hdr">
+        <span class="fp-nm" style="color:#fbbf24">高檔震盪出貨指紋</span>
+        <div class="fp-bar"><div class="fp-fill" style="width:68%;background:#fbbf24"></div></div>
+        <span class="fp-pct">68% 符合</span>
+      </div>
+      <div class="fp-chips">
+        <span class="fp-y">✓ 法說後爆量急跌</span>
+        <span class="fp-y">✓ 外資大量賣超</span>
+        <span class="fp-y">✓ 高檔量縮反彈無力</span>
+        <span class="fp-y">✓ 散戶困惑情緒</span>
+        <span class="fp-n">✗ 分點尚未全面分散</span>
+        <span class="fp-n">✗ 基本面長線仍強</span>
+      </div>
+    </div>
+    <div class="fp-sec">
+      <div class="fp-hdr">
+        <span class="fp-nm" style="color:#38bdf8">築底吸貨指紋</span>
+        <div class="fp-bar"><div class="fp-fill" style="width:35%;background:#38bdf8"></div></div>
+        <span class="fp-pct">35% 符合</span>
+      </div>
+      <div class="fp-chips">
+        <span class="fp-y">✓ 法人目標價遠高於現價</span>
+        <span class="fp-y">✓ 量縮不再急殺</span>
+        <span class="fp-n">✗ 外資尚未轉為連買</span>
+        <span class="fp-n">✗ 分點集中度未上升</span>
+        <span class="fp-n">✗ 散戶恐慌未到極值</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARISON vs 奇鋐 -->
+  <div class="section-label">廣達 vs 奇鋐 · MMPS 比較</div>
+  <div class="diff-box">
+    <div class="diff-title">◈ 同期主力週期差異對比</div>
+    <div class="diff-row">
+      <div class="diff-hd">指標</div>
+      <div class="diff-hd" style="color:#7dd3fc">廣達 2382</div>
+      <div class="diff-hd" style="color:#f0c060">奇鋐 3017</div>
+    </div>
+    <div class="diff-row">
+      <div class="diff-lbl">當前週期</div>
+      <div class="diff-a">高檔震盪</div>
+      <div class="diff-b">拉抬回補</div>
+    </div>
+    <div class="diff-row">
+      <div class="diff-lbl">主要風險</div>
+      <div class="diff-a">毛利率壓縮</div>
+      <div class="diff-b">Rubin 設計疑雲</div>
+    </div>
+    <div class="diff-row">
+      <div class="diff-lbl">外資動向</div>
+      <div class="diff-a">法說後賣超</div>
+      <div class="diff-b">震盪偏賣</div>
+    </div>
+    <div class="diff-row">
+      <div class="diff-lbl">法人目標價</div>
+      <div class="diff-a">380~430 元</div>
+      <div class="diff-b">3,140~3,780 元</div>
+    </div>
+    <div class="diff-row">
+      <div class="diff-lbl">上行空間</div>
+      <div class="diff-a">+20~36%</div>
+      <div class="diff-b">+25~51%</div>
+    </div>
+    <div class="diff-row">
+      <div class="diff-lbl">關鍵驗證點</div>
+      <div class="diff-a">Q2 毛利率（8月）</div>
+      <div class="diff-b">外資止賣信號</div>
+    </div>
+    <div class="diff-row">
+      <div class="diff-lbl">操作建議</div>
+      <div class="diff-a" style="color:#fbbf24">觀望為主</div>
+      <div class="diff-b" style="color:#34d399">逢低分批</div>
+    </div>
+  </div>
+
+  <!-- LAW RADAR -->
+  <div class="section-label">法規雷達 · 風險掃描</div>
+  <div class="mmps-card">
+    <div class="law-row"><div class="law-ico">📋</div><div class="law-nm">大股東申報轉讓</div><div class="law-st l-ok">無異常</div></div>
+    <div class="law-row"><div class="law-ico">💳</div><div class="law-nm">融資使用率</div><div class="law-st l-ok">正常水位</div></div>
+    <div class="law-row"><div class="law-ico">🏗️</div><div class="law-nm">資本支出 300 億</div><div class="law-st l-w">現金流壓力需關注</div></div>
+    <div class="law-row"><div class="law-ico">🌍</div><div class="law-nm">美國關稅風險</div><div class="law-st l-w">仍存在 但已部分消化</div></div>
+    <div class="law-row"><div class="law-ico">📦</div><div class="law-nm">0050 成分股</div><div class="law-st l-ok">權重股 ETF 買盤支撐</div></div>
+    <div class="law-row"><div class="law-ico">💱</div><div class="law-nm">寄售模式轉換</div><div class="law-st l-w">下半年毛利改善關鍵</div></div>
+  </div>
+
+  <!-- REC -->
+  <div class="section-label">MMPS · 預判結論與操作建議</div>
+  <div class="rec-box">
+    <div class="rec-verdict">📌 高檔震盪整理期｜暫觀望等待 Q2 毛利驗證</div>
+    <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:10px;">
+      廣達基本面長線無疑問（訂單到2027，AI伺服器年增三位數），但毛利率 4.78% 的結構性壓力是短期主要顧慮。外資法說後賣超是「獲利了結 + 倉位調整」，並非看空出清。主力下一步最高概率（42%）是在 295~330 元震盪消化，等待 Q2 財報（約8月）毛利改善數據來驗證後再決定方向。相比奇鋐，廣達目前訊號偏向「觀望」而非積極建倉。
+    </div>
+    <div class="rec-grid">
+      <div class="rec-item"><div class="ri-lbl">建議操作</div><div class="ri-val y">觀望為主</div></div>
+      <div class="rec-item"><div class="ri-lbl">目前現價</div><div class="ri-val">NT$316</div></div>
+      <div class="rec-item"><div class="ri-lbl">理想進場區間</div><div class="ri-val g">285–305</div></div>
+      <div class="rec-item"><div class="ri-lbl">法人目標上沿</div><div class="ri-val b">380–430</div></div>
+      <div class="rec-item"><div class="ri-lbl">停損參考</div><div class="ri-val r">跌破 275</div></div>
+      <div class="rec-item"><div class="ri-lbl">關鍵觀察點</div><div class="ri-val">Q2 毛利率 ≥5%</div></div>
+    </div>
+    <div style="margin-top:12px;font-size:11px;color:var(--text2);line-height:1.6;">
+      ⚠️ 觸發加碼信號：<span style="color:var(--green)">①外資連買 3 日以上 ②Q2 毛利率回升至 5%+ ③AMD MI455 出貨量超預期</span><br>
+      🔴 觸發停損信號：<span style="color:var(--red)">①Q2 毛利率再度低於 4.5% ②美國關稅再度升級 ③AI訂單下修傳聞</span>
+    </div>
+  </div>
+
+  <div style="height:20px"></div>
+</div>
+
+<div class="disclaimer">
+  ⚠️ 本分析為「主力心態模擬預判系統（MMPS）」實驗性輸出，基於公開資訊與行為金融學框架推演。資料來源：今周刊、工商時報、MoneyDJ、CMoney（2026/05）。本內容僅供研究參考，不構成投資建議。
+</div>
+
+<script>
+function tog(el){
+  const b=el.querySelector('.db'), c=el.querySelector('.ch');
+  if(!b)return;
+  b.classList.toggle('open');
+  if(c)c.classList.toggle('open');
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.pfill').forEach(b=>{
+    const w=b.style.width; b.style.width='0';
+    setTimeout(()=>{ b.style.width=w; },200);
+  });
+  document.querySelectorAll('.fp-fill').forEach(b=>{
+    const w=b.style.width; b.style.width='0';
+    setTimeout(()=>{ b.style.width=w; },400);
+  });
+});
+</script>
+</body>
+</html>
